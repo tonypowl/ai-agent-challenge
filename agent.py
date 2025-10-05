@@ -19,18 +19,26 @@ load_dotenv()  # corrected call
 #calling the api request 
 import requests
 
+#constants
+MAX_ATTEMPTS = 3
+MAX_OUTPUT_TOKENS = 2048
+TEMPERATURE = 0.2
+GEMINI_MODEL = "models/gemini-2.0-flash-exp"
+
 def init_llm(prompt: str, agent="gemini") -> str:
     import requests, os, json
-
     api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY environment variable not set")
+    
     base_url = "https://generativelanguage.googleapis.com/v1beta"
-    model = "models/gemini-2.0-flash-exp"
+    model = GEMINI_MODEL
 
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
-            "temperature": 0.2,
-            "maxOutputTokens": 2048
+            "temperature": TEMPERATURE,
+            "maxOutputTokens": MAX_OUTPUT_TOKENS
         }
     }
 
@@ -40,7 +48,6 @@ def init_llm(prompt: str, agent="gemini") -> str:
         headers={"Content-Type": "application/json"},
         data=json.dumps(payload)
     )
-
     data = response.json()
     return data["candidates"][0]["content"]["parts"][0]["text"]
 
@@ -56,13 +63,13 @@ def write_parser(code: str, target: str) -> str:
         f.write(code)
     return file_path
 
-def import_parser(file_path):
+def import_parser(file_path: str) -> any:
     spec = importlib.util.spec_from_file_location("parser_module", file_path)
     parser_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(parser_module)
     return parser_module
 
-def test_parser(parser_module, pdf_path, csv_path):
+def test_parser(parser_module: any, pdf_path: str, csv_path: str) -> tuple[bool, str]:
     expected_df = pd.read_csv(csv_path)
     
     #exception handling to check if the parsing worked 
@@ -97,12 +104,10 @@ class State(TypedDict): #langgraph standard format for creating a state
     csv_path: str
     parser_file: Optional[str]
     flag: Optional[str]
-
 graph_builder = StateGraph(State)
 
 #nodes: plan (check for files) - generate_code (obtain parse func) - run_tests (compare with old csv) - self_fix (if inaccurate and try<=3)
-
-def plan(state: State):
+def plan(state: State) -> State:
     state["messages"].append(
         {"role": "system", "content": "Planning done: assuming PDF & CSV exist."}
     )
@@ -128,7 +133,7 @@ Your response will be written directly to a Python file. Start with import state
     state["messages"].append({"role":"system","content":"Parser code generated"})
     return state
 
-def run_tests(state: State):
+def run_tests(state: State) -> State:
     parser_module = import_parser(state["parser_file"])
     success, msg = test_parser(parser_module, state["pdf_path"], state["csv_path"])
     state["messages"].append({"role":"system","content":f"Test result: {msg}"})
@@ -141,17 +146,14 @@ def self_fix(state: State):
         state["attempt"] += 1
         fix_prompt = f"""
 The parser failed: {state['flag']}
-
 Fix the parse(pdf_path: str) -> pd.DataFrame function.
 MUST return DataFrame with exactly these columns: Date, Description, Debit Amt, Credit Amt, Balance
-
 Common issues to fix:
 - Wrong column names or count
 - Not handling empty debit/credit properly (use empty string "")
 - Not skipping header lines
 - Balance not being last field
 - Description not capturing multiple words
-
 Return complete Python code without any formatting."""
         code = init_llm(fix_prompt, agent=state["agent"])
         state["parser_file"] = write_parser(code, state["target"])
@@ -193,7 +195,7 @@ if __name__ == "__main__":
     initial_state = {
         "messages": [],
         "attempt": 0,
-        "max_attempts": 3,
+        "max_attempts": MAX_ATTEMPTS,
         "target": args.target,
         "agent": args.llm,
         "pdf_path": pdf_path,
@@ -201,7 +203,6 @@ if __name__ == "__main__":
         "parser_file": None,
         "flag": None
     }
-
     final_state = graph.invoke(initial_state)
     print("[INFO] Agent finished. Messages log:")
     for msg in final_state["messages"]:
