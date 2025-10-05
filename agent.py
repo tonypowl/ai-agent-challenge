@@ -125,6 +125,7 @@ Requirements:
 - For credit transactions: put amount in 'Credit Amt', leave 'Debit Amt' as empty string  
 - Balance is always last number on line
 - Use pdfplumber to extract text
+- When parsing dates, use: pd.to_datetime(date_string, format='%d-%m-%Y', errors='coerce') to avoid warnings
 Your response will be written directly to a Python file. Start with import statements."""
     
     code = init_llm(prompt, agent=state["agent"])
@@ -154,11 +155,12 @@ Common issues to fix:
 - Not skipping header lines
 - Balance not being last field
 - Description not capturing multiple words
+- Use pd.to_datetime(date_string, format='%d-%m-%Y', errors='coerce') for date parsing to avoid warnings
 Return complete Python code without any formatting."""
         code = init_llm(fix_prompt, agent=state["agent"])
         state["parser_file"] = write_parser(code, state["target"])
         state["messages"].append(
-            {"role":"system","content":f"Parser self-fix attempt {state['attempt']}"}
+            {"role":"system","content":f"parser self-fix attempt {state['attempt']}"}
         )
         # run tests again after fixing
         parser_module = import_parser(state["parser_file"])
@@ -203,10 +205,18 @@ if __name__ == "__main__":
         "parser_file": None,
         "flag": None
     }
+    print(f"starting AI agent for {args.target} bank statement parsing...")
     final_state = graph.invoke(initial_state)
-    print("[INFO] Agent finished. Messages log:")
-    for msg in final_state["messages"]:
-        if hasattr(msg, 'content'):
-            print(msg.content)
-        else:
-            print(msg)
+    
+    # Clean summary output
+    print(f"\nAgent completed with {final_state['attempt']} self-fix attempts\n")
+    if final_state['flag']:
+        print(f"final result:- {final_state['flag']}\n")
+    else:
+        print("parser generated successfully!")
+    
+    if final_state['parser_file']:
+        print(f"generated: {final_state['parser_file']}")
+        print(f"self-fix attempts: {final_state['attempt']}/{final_state['max_attempts']}")
+    
+
