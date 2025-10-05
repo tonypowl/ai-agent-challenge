@@ -2,9 +2,6 @@
 #check the files in data folder (.pdf) and generates a icici_parser.py with a parse() function
 #import the new parse funtion run it on the .pdf and compare the new csv with the old csv
 #if inaccurate then retry atmost of 3 times
-
-#nodes: plan (check for files) - generate_code (obtain parse func) - run_tests (compare with old csv) - self_fix (if inaccurate and try<=3)
-
 import os  # directory related tasks
 import importlib.util  # calling parse()
 import pandas as pd  # dataframe
@@ -27,9 +24,7 @@ def init_llm(prompt: str, agent="gemini") -> str:
 
     api_key = os.getenv("GEMINI_API_KEY")
     base_url = "https://generativelanguage.googleapis.com/v1beta"
-
     model = "models/gemini-2.0-flash-exp"
-    print(f"[INFO] Using Gemini model: {model}")
 
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -51,7 +46,6 @@ def init_llm(prompt: str, agent="gemini") -> str:
 
 
 def write_parser(code: str, target: str) -> str:
-    """Write the generated parser code to a file."""
     os.makedirs("custom_parsers", exist_ok=True)
     file_path = f"custom_parsers/{target}_parser.py"
     
@@ -71,6 +65,7 @@ def import_parser(file_path):
 def test_parser(parser_module, pdf_path, csv_path):
     expected_df = pd.read_csv(csv_path)
     
+    #exception handling to check if the parsing worked 
     try:
         parsed_df = parser_module.parse(pdf_path)
     except Exception as e:
@@ -78,10 +73,9 @@ def test_parser(parser_module, pdf_path, csv_path):
     
     if not isinstance(parsed_df, pd.DataFrame):
         return False, "parse() must return a DataFrame"
-    
-    #comparison for better error messages
+
     if parsed_df.equals(expected_df):
-        return True, "Success"
+        return True, "Success" #comparison for better error messages
     
     #mismatch information error handling
     issues = []
@@ -91,11 +85,10 @@ def test_parser(parser_module, pdf_path, csv_path):
         issues.append(f"Shape mismatch. Expected: {expected_df.shape}, Got: {parsed_df.shape}")
     if not issues:
         issues.append("Data values don't match expected CSV")
-    
     return False, "; ".join(issues)
 
-class State(TypedDict):
-    messages: Annotated[list, add_messages] # langgraph standard format
+class State(TypedDict): #langgraph standard format for creating a state 
+    messages: Annotated[list, add_messages] 
     attempt: int
     max_attempts: int
     target: str
@@ -107,7 +100,8 @@ class State(TypedDict):
 
 graph_builder = StateGraph(State)
 
-#node definitions 
+#nodes: plan (check for files) - generate_code (obtain parse func) - run_tests (compare with old csv) - self_fix (if inaccurate and try<=3)
+
 def plan(state: State):
     state["messages"].append(
         {"role": "system", "content": "Planning done: assuming PDF & CSV exist."}
@@ -176,14 +170,12 @@ graph_builder.add_node("plan", plan)
 graph_builder.add_node("generate_code", generate_code)
 graph_builder.add_node("run_tests", run_tests)
 graph_builder.add_node("self_fix", self_fix)
-
 #edges between nodes
 graph_builder.add_edge(START, "plan")
 graph_builder.add_edge("plan", "generate_code")
 graph_builder.add_edge("generate_code", "run_tests")
 graph_builder.add_edge("run_tests", "self_fix")
 graph_builder.add_edge("self_fix", END) 
-
 #final compilation of the graph
 graph = graph_builder.compile()
 
