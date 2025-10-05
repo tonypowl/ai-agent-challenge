@@ -90,8 +90,9 @@ def test_parser(parser_module: any, pdf_path: str, csv_path: str) -> tuple[bool,
         issues.append(f"Column mismatch. Expected: {list(expected_df.columns)}, Got: {list(parsed_df.columns)}")
     if parsed_df.shape != expected_df.shape:
         issues.append(f"Shape mismatch. Expected: {expected_df.shape}, Got: {parsed_df.shape}")
-    if not issues:
-        issues.append("Data values don't match expected CSV")
+    else:
+        # Always show shape info even when data values don't match
+        issues.append(f"Data mismatch. Expected: {expected_df.shape}, Got: {parsed_df.shape} (same shape, different values)")
     return False, "; ".join(issues)
 
 class State(TypedDict): #langgraph standard format for creating a state 
