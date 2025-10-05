@@ -70,8 +70,16 @@ def import_parser(file_path):
 
 def test_parser(parser_module, pdf_path, csv_path):
     expected_df = pd.read_csv(csv_path)
-    parsed_df = parser_module.parse(pdf_path)
     
+    try:
+        parsed_df = parser_module.parse(pdf_path)
+    except Exception as e:
+        return False, f"Parser execution failed: {str(e)}"
+    
+    if not isinstance(parsed_df, pd.DataFrame):
+        return False, "parse() must return a DataFrame"
+    
+    #comparison for better error messages
     if parsed_df.equals(expected_df):
         return True, "Success"
     
