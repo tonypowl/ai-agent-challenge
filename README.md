@@ -1,8 +1,6 @@
 # ai-agent-challenge
 Coding agent challenge which write custom parsers for Bank statement PDF.
 
-## 5-Step Instructions
-
 ### Step 1: Install Dependencies
 ```
 pip3 install -r requirements.txt
@@ -26,3 +24,7 @@ python3 agent.py --target icici
 
 ### Step 5: Check Output
 Generated parser at `custom_parsers/icici_parser.py` with `parse()` function.
+
+<img width="153" height="531" alt="langgraph_structure" src="https://github.com/user-attachments/assets/13cd2fb3-d759-43c3-b2dc-0f83c32b449a" />
+
+
