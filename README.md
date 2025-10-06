@@ -22,8 +22,13 @@ Check `data/icici/` contains:
 python3 agent.py --target icici
 ```
 
-### Step 5: Check Output
+### Step 5: Check Output and Test 
 Generated parser at `custom_parsers/icici_parser.py` with `parse()` function.
+
+For testing the working of the file
+```
+python3 -m pytest test_agent.py -v
+```
 
 
 ## Agent Diagram 
